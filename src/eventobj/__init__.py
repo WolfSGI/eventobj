@@ -36,7 +36,7 @@ class Events(Registry):
             name = str(uuid4())
         return super().register((event_type, *args), name=name, **kwargs)
 
-    def notify(self, event):
+    def notify(self, event: Event):
         args = event.__dispatch__()
         for handler in self.lookup(event, *args, None, sorter=event_sorter):
             handler(event)
