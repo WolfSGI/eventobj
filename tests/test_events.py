@@ -118,6 +118,31 @@ def test_object_event():
     mock.touch.assert_has_calls((call("int 42"),))
 
 
+def test_event_typing():
+
+    events = Events()
+    mock = Mock()
+
+
+    class SomeEvent(ObjectEvent):
+
+        def __init__(self, obj: str):
+            """Works only for str.
+            """
+            self.obj = obj
+
+
+    @events.register(SomeEvent, str)
+    def handler2_for_str(event):
+        mock.touch(f'str {event.obj}')
+
+
+    with pytest.raises(ValueError):
+        @events.register(SomeEvent, int)
+        def handler3_for_int(event):
+            mock.touch(f'int {event.obj}')
+
+
 def test_events_merging():
 
     events1 = Events()
@@ -185,4 +210,37 @@ def test_events_merging_naming_squash():
     events.notify(event)
     mock.touch.assert_has_calls(
         (call("other str 42"),), any_order=True
+    )
+
+
+def test_complex_event_dispatch():
+
+    mock = Mock()
+
+    class MyEvent(Event):
+
+        def __init__(self, val1: str, val2: int, val3):
+            self.val1 = val1
+            self.val2 = val2
+            self.val3 = val3
+
+        def __dispatch__(self):
+            return (self.val1, self.val2, self.val3)
+
+
+    events = Events()
+    @events.register(MyEvent, str, int, bool)
+    def handler_for_str_int_bool(event):
+        mock.touch(f'got {event.val1, event.val2, event.val3}')
+
+
+    @events.register(MyEvent, str, int, str)
+    def handler_for_other(event):
+        mock.touch(f'other got {event.val1, event.val2, event.val3}')
+
+
+    event = MyEvent("abc", 42, False)
+    events.notify(event)
+    mock.touch.assert_has_calls(
+        (call("got ('abc', 42, False)"),), any_order=True
     )
