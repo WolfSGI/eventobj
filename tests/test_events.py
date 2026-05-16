@@ -1,3 +1,4 @@
+import pytest
 from unittest.mock import Mock, call
 from eventobj import Event, ObjectEvent, Events
 
@@ -16,6 +17,21 @@ def test_basic_usecase():
     event = Event()
     events.notify(event)
     mock.touch.assert_called_with(event)
+
+
+def test_basic_usecase_naming_conflict():
+    events = Events()
+    mock = Mock()
+    assert len(events) == 0
+
+    @events.register(Event, name="test")
+    def very_simple_handler(event):
+        mock.touch(event)
+
+    with pytest.raises(AssertionError):
+        @events.register(Event, name="test")
+        def other_simple_handler(event):
+            mock.touch(event)
 
 
 def test_sorted_events():
@@ -145,4 +161,28 @@ def test_events_merging():
     events.notify(event)
     mock.touch.assert_has_calls(
         (call("int 42"), call("other int 42")), any_order=True
+    )
+
+
+def test_events_merging_naming_squash():
+
+    events1 = Events()
+    events2 = Events()
+
+    @events1.register(ObjectEvent, str, name="test")
+    def handler_for_str(event):
+        mock.touch(f'str {event.obj}')
+
+
+    @events2.register(ObjectEvent, str, name="test")
+    def other_handler_for_str(event):
+        mock.touch(f'other str {event.obj}')
+
+
+    events = events1 | events2
+    mock = Mock()
+    event = ObjectEvent("42")
+    events.notify(event)
+    mock.touch.assert_has_calls(
+        (call("other str 42"),), any_order=True
     )
